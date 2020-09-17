@@ -1,2 +1,2 @@
-// Package pipes.
+// Package pipes ...
 package pipes

@@ -2,12 +2,13 @@ package pipes
 
 import (
 	"fmt"
-	"github.com/finderseyes/piper/pipes/mocks"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"strings"
 	"testing"
+
+	"github.com/finderseyes/piper/pipes/mocks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestNewGenerator(t *testing.T) {
@@ -18,14 +19,15 @@ func TestNewGenerator(t *testing.T) {
 func TestGenerator_Execute_FailedByPath(t *testing.T) {
 	var tests = []struct {
 		path string
-	} {
+	}{
 		{path: "not/exist"},
 		{path: "samples/piper-0.go"},
 	}
 
 	for _, c := range tests {
+		path := c.path
 		t.Run(c.path, func(t *testing.T) {
-			g := NewGenerator(c.path)
+			g := NewGenerator(path)
 			err := g.Execute()
 			assert.Error(t, err)
 		})

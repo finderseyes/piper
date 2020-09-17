@@ -2,8 +2,6 @@ package pipes
 
 import (
 	"fmt"
-	"github.com/dave/jennifer/jen"
-	"github.com/pkg/errors"
 	"go/ast"
 	"go/importer"
 	"go/parser"
@@ -11,26 +9,52 @@ import (
 	"go/types"
 	"io"
 	"os"
+	"regexp"
+
+	"github.com/dave/jennifer/jen"
+	"github.com/pkg/errors"
 )
 
+var pipeRegex = regexp.MustCompile(`//\s?@pipe.*`)
+
+const defaultFunctionName = "Invoke"
+
+const (
+	// StageTypeFunction ...
+	StageTypeFunction = iota
+	// StageTypeFunctor ...
+	StageTypeFunctor
+)
+
+// StageType ...
+type StageType int
+
+type stage struct {
+	name         string
+	stateType    StageType
+	functor      *Functor
+	paramIndices []int
+}
+
+// Functor ...
 type Functor struct {
-	name string
+	name      string
 	signature *types.Signature
 }
 
 // Generator ...
 type Generator struct {
-	path string
-	file *jen.File
-	info *types.Info
-	functors map[*types.Named]*Functor
+	path          string
+	file          *jen.File
+	info          *types.Info
+	functors      map[*types.Named]*Functor
 	writerFactory WriterFactory
 }
 
 // NewGenerator ...
 func NewGenerator(path string, opts ...Option) *Generator {
 	generator := &Generator{
-		path: path,
+		path:     path,
 		functors: map[*types.Named]*Functor{},
 	}
 
@@ -65,63 +89,6 @@ func (g *Generator) Execute() error {
 		}
 	}
 
-	//set := token.NewFileSet()
-	//packages, err := parser.ParseDir(set, g.path, nil, parser.ParseComments)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//for _, pkg := range packages {
-	//	for path, file := range pkg.Files {
-	//		for _, decl := range file.Decls {
-	//
-	//			funcDecl, ok := decl.(*ast.FuncDecl)
-	//			if !ok {
-	//				continue
-	//			}
-	//
-	//			isPiper, err := g.isPiper(funcDecl)
-	//			if err != nil {
-	//				return nil
-	//			}
-	//
-	//			// Skip if not piper.
-	//			if !isPiper {
-	//				continue
-	//			}
-	//
-	//			fmt.Print(funcDecl.Pos())
-	//		}
-	//
-	//		genPath := fmt.Sprintf("%s_gen.go", path[0:len(path)-3])
-	//		fmt.Print(genPath)
-	//
-	//		output, err := os.Create(genPath)
-	//		if err != nil {
-	//			return err
-	//		}
-	//
-	//		file.Comments = []*ast.CommentGroup{
-	//			{List: []*ast.Comment{
-	//				{
-	//					Text:  "// +build !piper\r\n",
-	//				},
-	//			}},
-	//		}
-	//
-	//		err = printer.Fprint(output, set, file)
-	//		if err != nil {
-	//			_ = output.Close()
-	//			return err
-	//		}
-	//
-	//		err = output.Close()
-	//		if err != nil {
-	//			return err
-	//		}
-	//	}
-	//}
-
 	return nil
 }
 
@@ -138,10 +105,6 @@ func (g *Generator) ensureDir() error {
 	return nil
 }
 
-func (g *Generator) isPiper(decl *ast.FuncDecl) (bool, error) {
-	return true, nil
-}
-
 //
 func (g *Generator) generatePackage(w io.Writer, fileSet *token.FileSet, pkgName string, pkg *ast.Package) error {
 	// REF: https://stackoverflow.com/questions/55377694/how-to-find-full-package-import-from-callexpr
@@ -150,7 +113,7 @@ func (g *Generator) generatePackage(w io.Writer, fileSet *token.FileSet, pkgName
 		files = append(files, file)
 	}
 
-	info := &types.Info {
+	info := &types.Info{
 		Types:      make(map[ast.Expr]types.TypeAndValue),
 		Defs:       make(map[*ast.Ident]types.Object),
 		Uses:       make(map[*ast.Ident]types.Object),
@@ -180,28 +143,27 @@ func (g *Generator) generatePackage(w io.Writer, fileSet *token.FileSet, pkgName
 		ast.Walk(g, file)
 	}
 
-	_, _  = fmt.Fprintf(w, "%#v", f)
+	_, _ = fmt.Fprintf(w, "%#v", f)
 
 	return nil
 }
 
+// Visit visits each node in an ASP tree.
 func (g *Generator) Visit(node ast.Node) ast.Visitor {
-	switch node := node.(type) {
-	case *ast.GenDecl:
-		if !g.isPipe(node) {
+	if decl, ok := node.(*ast.GenDecl); ok {
+		if !g.isPipe(decl) {
 			return g
 		}
 
-		for _, spec := range node.Specs {
-			switch nodeSpec := spec.(type) {
-			case *ast.TypeSpec:
-				switch structType := nodeSpec.Type.(type) {
-				case *ast.StructType:
-					g.genPipe(nodeSpec, structType)
+		for _, spec := range decl.Specs {
+			if spec, ok := spec.(*ast.TypeSpec); ok {
+				if structType, ok := spec.Type.(*ast.StructType); ok {
+					g.genPipe(spec, structType)
 				}
 			}
 		}
 	}
+
 	return g
 }
 
@@ -219,6 +181,7 @@ func (g *Generator) isPipe(node *ast.GenDecl) bool {
 	return false
 }
 
+// nolint:funlen,gocyclo // disable funlen and gocyclo linting since this is a complicated function.
 func (g *Generator) genPipe(nodeSpec *ast.TypeSpec, structType *ast.StructType) {
 	funcStmt := g.file.Func().Params(jen.Id("p").Op("*").Id(nodeSpec.Name.Name)).Id(defaultFunctionName)
 
@@ -261,12 +224,11 @@ func (g *Generator) genPipe(nodeSpec *ast.TypeSpec, structType *ast.StructType) 
 				stages = append(stages, &stage{
 					name:         id.Name,
 					stateType:    stageType,
-					functor:    functor,
+					functor:      functor,
 					paramIndices: paramIndicies,
 				})
 			}
 		}
-
 
 		//fmt.Println(stages)
 		var _ = fieldType
@@ -286,7 +248,7 @@ func (g *Generator) genPipe(nodeSpec *ast.TypeSpec, structType *ast.StructType) 
 		prevInputs[i] = jen.Id(fmt.Sprintf("v%d", stages[0].paramIndices[i]))
 	}
 
-	results := stages[len(stages) - 1].functor.signature.Results()
+	results := stages[len(stages)-1].functor.signature.Results()
 	resultTypes := make([]jen.Code, 0)
 	for i := 0; i < results.Len(); i++ {
 		p := results.At(i)
@@ -311,7 +273,7 @@ func (g *Generator) genPipe(nodeSpec *ast.TypeSpec, structType *ast.StructType) 
 			output = make([]jen.Code, results.Len())
 			for j := 0; j < results.Len(); j++ {
 				output[j] = jen.Id(fmt.Sprintf("v%d", varCount))
-				varCount += 1
+				varCount++
 			}
 			if stages[i].stateType == StageTypeFunction {
 				group.List(output...).Op(":=").Id("p").Dot(stages[i].name).Call(prevInputs...)
@@ -326,7 +288,7 @@ func (g *Generator) genPipe(nodeSpec *ast.TypeSpec, structType *ast.StructType) 
 	}).Line()
 }
 
-func (g *Generator) getQualifiedName(stmt *jen.Statement, t types.Type) *jen.Statement{
+func (g *Generator) getQualifiedName(stmt *jen.Statement, t types.Type) *jen.Statement {
 	switch t := t.(type) {
 	case *types.Named:
 		return stmt.Qual(t.Obj().Pkg().Name(), t.Obj().Name())
@@ -340,8 +302,7 @@ func (g *Generator) getQualifiedName(stmt *jen.Statement, t types.Type) *jen.Sta
 func (g *Generator) getFunctor(name *types.Named) *Functor {
 	functor, ok := g.functors[name]
 	if !ok {
-		switch underlyingType := name.Underlying().(type) {
-		case *types.Interface:
+		if underlyingType, ok := name.Underlying().(*types.Interface); ok {
 			if underlyingType.NumMethods() != 1 {
 				return nil
 			}
@@ -364,41 +325,3 @@ func (g *Generator) getFunctor(name *types.Named) *Functor {
 
 	return functor
 }
-
-//func (g *Generator) Visit(node ast.Node) ast.Visitor {
-//	switch node := node.(type) {
-//	case *ast.GenDecl:
-//		for _, spec := range node.Specs {
-//			switch node := spec.(type) {
-//			case *ast.TypeSpec:
-//				switch nodeType := node.Type.(type) {
-//				case *ast.StructType:
-//					g.file.Type().Id(node.Name.Name).StructFunc(func(group *jen.Group) {
-//						for _, field := range nodeType.Fields.List {
-//							ids := make([]jen.Code, 0, len(field.Names))
-//							for _, name := range field.Names {
-//								ids = append(ids, jen.Id(name.Name))
-//							}
-//							stmt := group.List(ids...)
-//
-//							typeInfo, ok := g.info.Types[field.Type]
-//							if !ok {
-//								fmt.Print("failed")
-//							}
-//
-//							switch fieldType := typeInfo.Type.(type) {
-//							//case *types.Basic:
-//							//	stmt.Qual("", fieldType.Name())
-//							case *types.Named:
-//								stmt.Qual(fieldType.Obj().Pkg().Path(), fieldType.Obj().Name())
-//							default:
-//								stmt.Qual("", fieldType.String())
-//							}
-//						}
-//					})
-//				}
-//			}
-//		}
-//	}
-//	return g
-//}

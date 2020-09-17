@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/finderseyes/piper/cmd/gen/cmd"
 	"os"
+
+	"github.com/finderseyes/piper/cmd/gen/cmd"
 )
 
 func main() {

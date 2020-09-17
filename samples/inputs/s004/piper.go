@@ -6,8 +6,6 @@ type Functor interface {
 
 // @pipe
 type PipeWithFunctor struct {
-	a func (int) float32
+	a func(int) float32
 	b Functor
 }
-
-
