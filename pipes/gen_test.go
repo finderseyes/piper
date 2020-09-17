@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/finderseyes/piper/pipes/mocks"
+	_ "github.com/finderseyes/piper/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
