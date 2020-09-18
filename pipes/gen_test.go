@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dave/dst/decorator"
+
 	"github.com/finderseyes/piper/pipes/mocks"
 	_ "github.com/finderseyes/piper/testing"
 	"github.com/stretchr/testify/assert"
@@ -36,7 +38,7 @@ func TestGenerator_Execute_FailedByPath(t *testing.T) {
 }
 
 func TestGenerator_Execute_Succeed(t *testing.T) {
-	const count = 5
+	const count = 7
 
 	for i := 0; i < count; i++ {
 		input := fmt.Sprintf("samples/inputs/s%03d", i)
@@ -52,7 +54,18 @@ func TestGenerator_Execute_Succeed(t *testing.T) {
 			assert.NoError(t, err)
 
 			buff, _ := ioutil.ReadFile(output)
-			assert.Equal(t, string(buff), writer.String())
+
+			resultTree, err := decorator.Parse(writer.String())
+			assert.NoError(t, err)
+			result := &strings.Builder{}
+			_ = decorator.Fprint(result, resultTree)
+
+			expectedTree, err := decorator.Parse(strings.ReplaceAll(string(buff), "\r\n", "\n"))
+			assert.NoError(t, err)
+			expected := &strings.Builder{}
+			_ = decorator.Fprint(expected, expectedTree)
+
+			assert.Equal(t, expected.String(), result.String())
 		})
 	}
 }
