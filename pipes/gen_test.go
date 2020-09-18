@@ -36,7 +36,7 @@ func TestGenerator_Execute_FailedByPath(t *testing.T) {
 }
 
 func TestGenerator_Execute_Succeed(t *testing.T) {
-	const count = 5
+	const count = 7
 
 	for i := 0; i < count; i++ {
 		input := fmt.Sprintf("samples/inputs/s%03d", i)
@@ -52,7 +52,8 @@ func TestGenerator_Execute_Succeed(t *testing.T) {
 			assert.NoError(t, err)
 
 			buff, _ := ioutil.ReadFile(output)
-			assert.Equal(t, string(buff), writer.String())
+			source := strings.ReplaceAll(string(buff), "\r\n", "\n")
+			assert.Equal(t, source, writer.String())
 		})
 	}
 }
