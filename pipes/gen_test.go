@@ -38,7 +38,7 @@ func TestGenerator_Execute_FailedByPath(t *testing.T) {
 }
 
 func TestGenerator_Execute_Succeed(t *testing.T) {
-	const count = 7
+	const count = 8
 
 	for i := 0; i < count; i++ {
 		input := fmt.Sprintf("samples/inputs/s%03d", i)

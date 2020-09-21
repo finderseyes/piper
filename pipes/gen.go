@@ -339,12 +339,14 @@ func (g *Generator) getQualifiedName(stmt *jen.Statement, t types.Type) *jen.Sta
 	case *types.Named:
 		pkg := t.Obj().Pkg()
 		if pkg != nil {
-			return stmt.Qual(t.Obj().Pkg().Name(), t.Obj().Name())
+			return stmt.Qual(t.Obj().Pkg().Path(), t.Obj().Name())
 		}
 
 		return stmt.Id(t.Obj().Name())
 	case *types.Basic:
 		return stmt.Id(t.Name())
+	case *types.Pointer:
+		return g.getQualifiedName(stmt.Op("*"), t.Elem())
 	}
 
 	panic("cannot reach here")
