@@ -2,13 +2,13 @@
 
 package s003
 
-func (p *PipeWithTwoFunctions) Invoke(v0 int) (int, int) {
+func (p *PipeWithTwoFunctions) Run(v0 int) (int, int) {
 	v1 := p.a(v0)
 	v2, v3 := p.b(v1)
 	return v2, v3
 }
 
-func (p *PipeWithThreeFunctions) Invoke(v0 int) float64 {
+func (p *PipeWithThreeFunctions) Run(v0 int) float64 {
 	v1 := p.a(v0)
 	v2, v3 := p.b(v1)
 	v4 := p.c(v2, v3)
