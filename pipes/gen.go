@@ -444,8 +444,8 @@ func (g *Generator) getPipeInfo(pipeStruct *ast.StructType) *pipeInfo {
 	}
 
 	return &pipeInfo{
-		returnsError: 			returnsError,
-		stages:       			stages,
+		returnsError:           returnsError,
+		stages:                 stages,
 		invocationFunctionName: invocationFunctionName,
 	}
 }
