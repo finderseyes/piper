@@ -2,7 +2,7 @@
 
 package s001
 
-func (p *Pipe) Invoke(v0 int) int {
+func (p *Pipe) Run(v0 int) int {
 	v1 := p.a(v0)
 	return v1
 }

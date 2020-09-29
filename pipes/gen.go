@@ -17,7 +17,7 @@ import (
 
 var pipeRegex = regexp.MustCompile(`//\s?@pipe.*`)
 
-const defaultFunctionName = "Invoke"
+const defaultInvocationFunctionName = "Run"
 
 const (
 	// StageTypeFunction ...
@@ -38,8 +38,9 @@ type stage struct {
 
 // pipeInfo contains information about a pipe.
 type pipeInfo struct {
-	returnsError bool
-	stages       []*stage
+	returnsError           bool
+	stages                 []*stage
+	invocationFunctionName string
 }
 
 // Functor ...
@@ -188,11 +189,11 @@ func (g *Generator) isPipe(node *ast.GenDecl) bool {
 
 // nolint:funlen,gocyclo // disable funlen and gocyclo linting since this is a complicated function.
 func (g *Generator) genPipe(pipeSpec *ast.TypeSpec, pipeStruct *ast.StructType) {
-	funcStmt := g.file.Func().Params(jen.Id("p").Op("*").Id(pipeSpec.Name.Name)).Id(defaultFunctionName)
-
 	pipeInfo := g.getPipeInfo(pipeStruct)
 	stages := pipeInfo.stages
 	varCount := 0
+
+	funcStmt := g.file.Func().Params(jen.Id("p").Op("*").Id(pipeSpec.Name.Name)).Id(pipeInfo.invocationFunctionName)
 
 	// Generate input params.
 	var vars []string
@@ -384,6 +385,7 @@ func (g *Generator) getPipeInfo(pipeStruct *ast.StructType) *pipeInfo {
 	fields := pipeStruct.Fields.List
 	stages := make([]*stage, 0, len(fields))
 	returnsError := false
+	invocationFunctionName := defaultInvocationFunctionName
 
 	for _, field := range fields {
 		fieldType, ok := g.info.Types[field.Type]
@@ -442,8 +444,9 @@ func (g *Generator) getPipeInfo(pipeStruct *ast.StructType) *pipeInfo {
 	}
 
 	return &pipeInfo{
-		returnsError: returnsError,
-		stages:       stages,
+		returnsError:           returnsError,
+		stages:                 stages,
+		invocationFunctionName: invocationFunctionName,
 	}
 }
 

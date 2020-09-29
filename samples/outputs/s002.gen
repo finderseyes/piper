@@ -2,12 +2,12 @@
 
 package s002
 
-func (p *PipeOne) Invoke(v0 int) int {
+func (p *PipeOne) Run(v0 int) int {
 	v1 := p.a(v0)
 	return v1
 }
 
-func (p *PipeTwo) Invoke(v0 int) int {
+func (p *PipeTwo) Run(v0 int) int {
 	v1 := p.a(v0)
 	return v1
 }
