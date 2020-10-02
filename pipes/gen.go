@@ -7,10 +7,11 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
-	"io"
 	"os"
 	"path"
 	"regexp"
+
+	"github.com/finderseyes/piper/pipes/io"
 
 	"github.com/dave/jennifer/jen"
 	"github.com/pkg/errors"
@@ -57,7 +58,7 @@ type Generator struct {
 	file          *jen.File
 	info          *types.Info
 	functors      map[*types.Named]*Functor
-	writerFactory WriterFactory
+	writerFactory io.WriterFactory
 }
 
 // NewGenerator ...
@@ -72,7 +73,7 @@ func NewGenerator(path string, opts ...Option) *Generator {
 	}
 
 	if generator.writerFactory == nil {
-		generator.writerFactory = NewStringWriterFactory()
+		generator.writerFactory = io.NewStringWriterFactory()
 	}
 
 	return generator
@@ -125,7 +126,7 @@ func (g *Generator) ensureDir() error {
 }
 
 //
-func (g *Generator) generatePackage(w io.Writer, fileSet *token.FileSet, pkgName string, pkg *ast.Package) error {
+func (g *Generator) generatePackage(w io.ClosableWriter, fileSet *token.FileSet, pkgName string, pkg *ast.Package) error {
 	// REF: https://stackoverflow.com/questions/55377694/how-to-find-full-package-import-from-callexpr
 	files := make([]*ast.File, 0)
 	for _, file := range pkg.Files {

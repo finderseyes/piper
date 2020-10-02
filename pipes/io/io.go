@@ -1,4 +1,4 @@
-package pipes
+package io
 
 import (
 	"bufio"
@@ -19,7 +19,7 @@ type WriterFactory interface {
 	CreateWriter(path string) (ClosableWriter, error)
 }
 
-type closableStringWriter struct {
+type ClosableStringBuilder struct {
 	strings.Builder
 }
 
@@ -28,7 +28,7 @@ func NewStringWriterFactory() WriterFactory {
 	return &stringWriterFactory{}
 }
 
-func (w *closableStringWriter) Close() error {
+func (w *ClosableStringBuilder) Close() error {
 	return nil
 }
 
@@ -36,7 +36,7 @@ type stringWriterFactory struct{}
 
 // CreateWriter returns a string io.Writer.
 func (f *stringWriterFactory) CreateWriter(name string) (ClosableWriter, error) {
-	return &closableStringWriter{Builder: *&strings.Builder{}}, nil
+	return &ClosableStringBuilder{strings.Builder{}}, nil
 	// return &strings.Builder{}, nil
 }
 

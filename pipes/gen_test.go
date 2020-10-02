@@ -2,13 +2,14 @@ package pipes
 
 import (
 	"fmt"
+	"github.com/finderseyes/piper/pipes/io"
 	"io/ioutil"
 	"strings"
 	"testing"
 
 	"github.com/dave/dst/decorator"
 
-	"github.com/finderseyes/piper/pipes/mocks"
+	"github.com/finderseyes/piper/pipes/io/mocks"
 	_ "github.com/finderseyes/piper/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -45,9 +46,11 @@ func TestGenerator_Execute_Succeed(t *testing.T) {
 		output := fmt.Sprintf("samples/outputs/s%03d.gen", i)
 
 		t.Run(input, func(t *testing.T) {
-			writer := &strings.Builder{}
+			writer := &io.ClosableStringBuilder{}
 			mockFactory := &mocks.WriterFactory{}
-			mockFactory.On("CreateWriter", mock.AnythingOfType("string")).Return(writer)
+			mockFactory.On("CreateWriter",
+				mock.AnythingOfType("string"),
+			).Return(writer, nil)
 			g := NewGenerator(input, WithWriterFactory(mockFactory))
 			err := g.Execute()
 
