@@ -17,3 +17,5 @@
 # vendor/
 
 .idea/
+
+samples/**/piper_gen.go
