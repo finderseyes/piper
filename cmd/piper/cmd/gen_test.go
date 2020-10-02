@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path"
 	"runtime"
@@ -28,13 +27,9 @@ func TestNewRootCommand(t *testing.T) {
 
 			command := exec.Command("go", "test")
 			command.Dir = inputPath
-			command.Stdin = os.Stdin
-			command.Stdout = os.Stdout
-			command.Stderr = os.Stderr
 
-			err = command.Run()
+			_, err = command.CombinedOutput()
 			assert.NoError(t, err)
-			// fmt.Printf("%s\n", output)
 		})
 	}
 }
