@@ -9,6 +9,7 @@ import (
 	"go/types"
 	"io"
 	"os"
+	"path"
 	"regexp"
 
 	"github.com/dave/jennifer/jen"
@@ -18,6 +19,7 @@ import (
 var pipeRegex = regexp.MustCompile(`//\s?@pipe.*`)
 
 const defaultInvocationFunctionName = "Run"
+const piperOuput = "piper_gen.go"
 
 const (
 	// StageTypeFunction ...
@@ -89,8 +91,18 @@ func (g *Generator) Execute() error {
 	}
 
 	for name, pkg := range packages {
-		writer := g.writerFactory.CreateWriter(name)
-		err := g.generatePackage(writer, fileSet, name, pkg)
+		piperGenFile := path.Join(g.path, piperOuput)
+		writer, err := g.writerFactory.CreateWriter(piperGenFile)
+		if err != nil {
+			return err
+		}
+
+		err = g.generatePackage(writer, fileSet, name, pkg)
+		if err != nil {
+			return err
+		}
+
+		err = writer.Close()
 		if err != nil {
 			return err
 		}

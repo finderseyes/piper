@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/finderseyes/piper/cmd/gen/cmd"
+	"github.com/finderseyes/piper/cmd/piper/cmd"
 )
 
 func main() {
