@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewRootCommand(t *testing.T) {
+func TestGenCommand_Success(t *testing.T) {
 	const testCount = 8
 
 	for ti := 0; ti < testCount; ti++ {
@@ -28,7 +28,10 @@ func TestNewRootCommand(t *testing.T) {
 			command := exec.Command("go", "test")
 			command.Dir = inputPath
 
-			_, err = command.CombinedOutput()
+			output, err := command.CombinedOutput()
+			if err != nil {
+				t.Log(string(output))
+			}
 			assert.NoError(t, err)
 		})
 	}

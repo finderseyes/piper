@@ -14,5 +14,5 @@ jobs:
         with:
           go-version: '^1.14.0'
       - name: Test
-        run: go test -v ./cmd/... ./pipes/...
+        run: go test -v ./pipes/... ./cmd/...
 

@@ -2,10 +2,12 @@
 
 package s006
 
+import errors "github.com/finderseyes/piper/errors"
+
 func (p *PipeOne) Run(v0 int) (float32, error) {
 	v1, err := p.a(v0)
 	if err != nil {
-		return 0.0, err
+		return 0.0, errors.NewError("a", err)
 	}
 
 	return v1, nil
@@ -14,7 +16,7 @@ func (p *PipeOne) Run(v0 int) (float32, error) {
 func (p *PipeTwo) Run(v0 int) (float64, error) {
 	v1, err := p.a(v0)
 	if err != nil {
-		return 0.0, err
+		return 0.0, errors.NewError("a", err)
 	}
 
 	v2 := p.b(v1)
@@ -24,13 +26,13 @@ func (p *PipeTwo) Run(v0 int) (float64, error) {
 func (p *PipeThree) Run(v0 int) (int64, error) {
 	v1, err := p.a(v0)
 	if err != nil {
-		return 0.0, err
+		return 0.0, errors.NewError("a", err)
 	}
 
 	v2 := p.b(v1)
 	v3, err := p.c(v2)
 	if err != nil {
-		return 0, err
+		return 0, errors.NewError("c", err)
 	}
 
 	return v3, nil

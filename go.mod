@@ -11,6 +11,4 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/vektra/mockery/v2 v2.2.1 // indirect
-	golang.org/x/tools v0.0.0-20200509030707-2212a7e161a5
-// golang.org/x/tools v0.0.0-20200509030707-2212a7e161a5
 )
