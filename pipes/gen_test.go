@@ -2,10 +2,11 @@ package pipes
 
 import (
 	"fmt"
-	"github.com/finderseyes/piper/pipes/io"
 	"io/ioutil"
 	"strings"
 	"testing"
+
+	"github.com/finderseyes/piper/pipes/io"
 
 	"github.com/dave/dst/decorator"
 

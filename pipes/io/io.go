@@ -1,3 +1,4 @@
+// Package io contains io abstractions.
 package io
 
 import (
@@ -9,6 +10,7 @@ import (
 
 //go:generate mockery --name=WriterFactory
 
+// ClosableWriter ...
 type ClosableWriter interface {
 	io.Writer
 	Close() error
@@ -19,6 +21,7 @@ type WriterFactory interface {
 	CreateWriter(path string) (ClosableWriter, error)
 }
 
+// ClosableStringBuilder ...
 type ClosableStringBuilder struct {
 	strings.Builder
 }
@@ -28,6 +31,7 @@ func NewStringWriterFactory() WriterFactory {
 	return &stringWriterFactory{}
 }
 
+// Close ...
 func (w *ClosableStringBuilder) Close() error {
 	return nil
 }
@@ -46,10 +50,12 @@ type closableFileWriter struct {
 	file *os.File
 }
 
+// NewFileWriterFactory ...
 func NewFileWriterFactory() WriterFactory {
 	return &fileWriterFactory{}
 }
 
+// CreateWriter ...
 func (f *fileWriterFactory) CreateWriter(path string) (ClosableWriter, error) {
 	file, err := os.Create(path)
 	if err != nil {
@@ -64,6 +70,7 @@ func (f *fileWriterFactory) CreateWriter(path string) (ClosableWriter, error) {
 	}, err
 }
 
+// Close ...
 func (w *closableFileWriter) Close() error {
 	//if err := w.File.Sync(); err != nil {
 	//	return err

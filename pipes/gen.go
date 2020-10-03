@@ -19,8 +19,11 @@ import (
 
 var pipeRegex = regexp.MustCompile(`//\s?@pipe.*`)
 
-const defaultInvocationFunctionName = "Run"
-const piperOuput = "piper_gen.go"
+const (
+	defaultInvocationFunctionName = "Run"
+	piperOutputFileName           = "piper_gen.go"
+	piperErrorsPackage            = "github.com/finderseyes/piper/errors"
+)
 
 const (
 	// StageTypeFunction ...
@@ -92,18 +95,13 @@ func (g *Generator) Execute() error {
 	}
 
 	for name, pkg := range packages {
-		piperGenFile := path.Join(g.path, piperOuput)
+		piperGenFile := path.Join(g.path, piperOutputFileName)
 		writer, err := g.writerFactory.CreateWriter(piperGenFile)
 		if err != nil {
 			return err
 		}
 
 		err = g.generatePackage(writer, fileSet, name, pkg)
-		if err != nil {
-			return err
-		}
-
-		err = writer.Close()
 		if err != nil {
 			return err
 		}
@@ -126,7 +124,12 @@ func (g *Generator) ensureDir() error {
 }
 
 //
-func (g *Generator) generatePackage(w io.ClosableWriter, fileSet *token.FileSet, pkgName string, pkg *ast.Package) error {
+func (g *Generator) generatePackage(
+	w io.ClosableWriter,
+	fileSet *token.FileSet,
+	pkgName string,
+	pkg *ast.Package,
+) error {
 	// REF: https://stackoverflow.com/questions/55377694/how-to-find-full-package-import-from-callexpr
 	files := make([]*ast.File, 0)
 	for _, file := range pkg.Files {
@@ -164,7 +167,7 @@ func (g *Generator) generatePackage(w io.ClosableWriter, fileSet *token.FileSet,
 
 	_, _ = fmt.Fprintf(w, "%#v", f)
 
-	return nil
+	return w.Close()
 }
 
 // Visit visits each node in an ASP tree.
@@ -300,7 +303,11 @@ func (g *Generator) genPipe(pipeSpec *ast.TypeSpec, pipeStruct *ast.StructType) 
 							t := results.At(k).Type()
 							g.genLit(group, t)
 						}
-						group.Err()
+
+						group.
+							Qual(piperErrorsPackage, "NewError").
+							Call(jen.Lit(stage.name), jen.Err())
+						//group.Err()
 					})).Line()
 				}
 			}
