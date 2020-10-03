@@ -4,6 +4,8 @@ package errors
 import (
 	"fmt"
 	"io"
+
+	"github.com/pkg/errors"
 )
 
 var errSkipped = fmt.Errorf("skipping pipeline")
@@ -18,6 +20,14 @@ type pipeError struct {
 func NewError(stage string, err error) error {
 	return &pipeError{
 		error: err,
+		stage: stage,
+	}
+}
+
+// CannotSkip returns an error signifying the stage cannot be skipped.
+func CannotSkip(stage string, err error) error {
+	return &pipeError{
+		error: errors.Wrap(err, "cannot skip"),
 		stage: stage,
 	}
 }
@@ -47,7 +57,7 @@ func Stage(err error) string {
 }
 
 // Cause returns the cause of a piper error.
-func (w *pipeError) Cause() error { return w.error }
+func (w *pipeError) Cause() error { return errors.Cause(w.error) }
 
 // Unwraps returns the cause of a piper error.
 func (w *pipeError) Unwrap() error { return w.error }

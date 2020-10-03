@@ -40,6 +40,7 @@ type stage struct {
 	stateType    StageType
 	functor      *Functor
 	returnsError bool
+	canSkip      bool
 }
 
 // pipeInfo contains information about a pipe.
@@ -147,10 +148,11 @@ func (g *Generator) generatePackage(
 	}
 
 	conf := types.Config{Importer: importer.ForCompiler(fileSet, "source", nil)}
-	_, err := conf.Check(pkgName, fileSet, files, info)
-	if err != nil {
-		fmt.Print(err)
-	}
+	// TODO: probably need to handle error.
+	// I decided to skip error checking since it most likely contains legitimate error, such as
+	// when testing include a Pipe run, its Run function is not generated in the 1st place and hence checking
+	// returns error.
+	_, _ = conf.Check(pkgName, fileSet, files, info)
 
 	// f := jen.NewFile(pkgName)
 	f := jen.NewFilePath(pkgName)
@@ -252,8 +254,18 @@ func (g *Generator) genPipe(pipeSpec *ast.TypeSpec, pipeStruct *ast.StructType) 
 		}
 	}
 
+	// Determine if there's any stage can skip.
+	{
+		lastStage := stages[len(stages)-1]
+		for i := 0; i < len(stages); i++ {
+			stage := stages[i]
+			stage.canSkip = g.canSkip(stage, lastStage)
+		}
+	}
+
 	funcStmt.BlockFunc(func(group *jen.Group) {
 		var resultVars []string
+		lastStage := stages[len(stages)-1]
 
 		for i := 0; i < len(stages); i++ {
 			stage := stages[i]
@@ -298,17 +310,65 @@ func (g *Generator) genPipe(pipeSpec *ast.TypeSpec, pipeStruct *ast.StructType) 
 				vars = resultVars
 
 				if stage.returnsError {
-					group.If(jen.Err().Op("!=").Nil()).Block(jen.ReturnFunc(func(group *jen.Group) {
-						for k := 0; k < len(resultVars); k++ {
-							t := results.At(k).Type()
-							g.genLit(group, t)
-						}
+					group.If(jen.Err().Op("!=").Nil()).BlockFunc(func(group *jen.Group) {
+						group.If(jen.Qual(piperErrorsPackage, "IsSkipped").Call(jen.Err())).BlockFunc(func(group *jen.Group) {
+							if !stage.canSkip {
+								// Last stage.
+								if stage == lastStage {
+									group.ReturnFunc(func(group *jen.Group) {
+										for k := 0; k < len(resultVars); k++ {
+											group.Id(resultVars[k])
+										}
 
-						group.
-							Qual(piperErrorsPackage, "NewError").
-							Call(jen.Lit(stage.name), jen.Err())
-						//group.Err()
-					})).Line()
+										group.Nil()
+									})
+								} else {
+									//group.Panic(jen.Lit("cannot skip"))
+									group.ReturnFunc(func(group *jen.Group) {
+										for k := 0; k < len(resultVars); k++ {
+											t := results.At(k).Type()
+											g.genLit(group, t)
+										}
+
+										group.
+											Qual(piperErrorsPackage, "CannotSkip").
+											Call(jen.Lit(stage.name), jen.Err())
+									})
+								}
+							} else {
+								group.ReturnFunc(func(group *jen.Group) {
+									for k := 0; k < len(resultVars); k++ {
+										group.Id(resultVars[k])
+									}
+
+									group.Err()
+								})
+							}
+						}).Line()
+
+						group.ReturnFunc(func(group *jen.Group) {
+							for k := 0; k < len(resultVars); k++ {
+								t := results.At(k).Type()
+								g.genLit(group, t)
+							}
+
+							group.
+								Qual(piperErrorsPackage, "NewError").
+								Call(jen.Lit(stage.name), jen.Err())
+							//group.Err()
+						})
+					}).Line()
+					//group.If(jen.Err().Op("!=").Nil()).Block(jen.ReturnFunc(func(group *jen.Group) {
+					//	for k := 0; k < len(resultVars); k++ {
+					//		t := results.At(k).Type()
+					//		g.genLit(group, t)
+					//	}
+					//
+					//	group.
+					//		Qual(piperErrorsPackage, "NewError").
+					//		Call(jen.Lit(stage.name), jen.Err())
+					//	//group.Err()
+					//})).Line()
 				}
 			}
 		}
@@ -325,12 +385,12 @@ func (g *Generator) genPipe(pipeSpec *ast.TypeSpec, pipeStruct *ast.StructType) 
 	}).Line()
 }
 
-func (g *Generator) genLit(group *jen.Group, t types.Type) *jen.Statement {
+func (g *Generator) genLit(group *jen.Group, t types.Type) {
 	switch t := t.(type) {
 	case *types.Named:
-		return group.Id(t.Obj().Name()).Parens(jen.LitFunc(g.getZeroLit(t.Underlying())))
+		group.Id(t.Obj().Name()).Parens(jen.LitFunc(g.getZeroLit(t.Underlying())))
 	default:
-		return group.LitFunc(g.getZeroLit(t))
+		group.LitFunc(g.getZeroLit(t))
 	}
 }
 
@@ -491,4 +551,32 @@ func (g *Generator) doesReturnError(functor *Functor) (bool, error) {
 	}
 
 	return returnsError, nil
+}
+
+func (g *Generator) canSkip(stage, lastStage *stage) bool {
+	if stage == lastStage || !stage.returnsError {
+		return false
+	}
+
+	stageFunctor := stage.functor
+	lastStageFunctor := lastStage.functor
+
+	resultsLen := stageFunctor.signature.Results().Len()
+	lastResultsLen := lastStageFunctor.signature.Results().Len()
+
+	//
+	if lastResultsLen > resultsLen {
+		return false
+	}
+
+	for i := 0; i < lastResultsLen; i++ {
+		a := stageFunctor.signature.Results().At(i)
+		b := lastStageFunctor.signature.Results().At(i)
+
+		if a.Type() != b.Type() {
+			return false
+		}
+	}
+
+	return true
 }
