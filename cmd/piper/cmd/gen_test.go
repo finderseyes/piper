@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path"
 	"runtime"
@@ -11,7 +12,7 @@ import (
 )
 
 func TestGenCommand_Success(t *testing.T) {
-	const testCount = 8
+	const testCount = 9
 
 	for ti := 0; ti < testCount; ti++ {
 		_, filename, _, _ := runtime.Caller(0)
@@ -19,7 +20,9 @@ func TestGenCommand_Success(t *testing.T) {
 		inputPath = path.Join(path.Dir(filename), "../../..", inputPath)
 
 		// assert.NoError(t, command.Run())
-		t.Run(inputPath, func(t *testing.T) {
+		t.Run(fmt.Sprintf("case: %s", inputPath), func(t *testing.T) {
+			_ = os.Remove(path.Join(inputPath, "piper_gen.go"))
+
 			genCommand := newGenCommand()
 			genCommand.SetArgs([]string{inputPath})
 			err := genCommand.Execute()
