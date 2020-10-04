@@ -276,27 +276,33 @@ func (g *Generator) genPipe(pipeSpec *ast.TypeSpec, pipeStruct *ast.StructType) 
 				if stage.returnsError {
 					resultsLen--
 				}
-
 				resultVars = make([]string, resultsLen)
 
-				lhs := group.ListFunc(func(group *jen.Group) {
-					for j := 0; j < resultsLen; j++ {
-						resultVars[j] = fmt.Sprintf("v%d", varCount)
-						group.Id(resultVars[j])
-						varCount++
-					}
+				var lhs *jen.Statement
 
-					if stage.returnsError {
-						group.Err()
-					}
-				})
+				// The function basically returns void
+				if resultsLen <= 0 && !stage.returnsError {
+					lhs = group.Empty().Id("p")
+				} else {
+					lhs = group.ListFunc(func(group *jen.Group) {
+						for j := 0; j < resultsLen; j++ {
+							resultVars[j] = fmt.Sprintf("v%d", varCount)
+							group.Id(resultVars[j])
+							varCount++
+						}
+
+						if stage.returnsError {
+							group.Err()
+						}
+					}).Op(":=").Id("p")
+				}
 
 				var assignment *jen.Statement
 				switch stage.stateType {
 				case StageTypeFunction:
-					assignment = lhs.Op(":=").Id("p").Dot(stages[i].name)
+					assignment = lhs.Dot(stages[i].name)
 				case StageTypeFunctor:
-					assignment = lhs.Op(":=").Id("p").Dot(stages[i].name).Dot(stages[i].functor.name)
+					assignment = lhs.Dot(stages[i].name).Dot(stages[i].functor.name)
 				default:
 					panic("should not reach here.")
 				}
@@ -315,74 +321,85 @@ func (g *Generator) genPipe(pipeSpec *ast.TypeSpec, pipeStruct *ast.StructType) 
 							if !stage.canSkip {
 								// Last stage.
 								if stage == lastStage {
-									group.ReturnFunc(func(group *jen.Group) {
-										for k := 0; k < len(resultVars); k++ {
-											group.Id(resultVars[k])
+									g.genStageReturns(stage, group, func(group *jen.Group, i int, isError bool) {
+										if isError {
+											group.Nil()
+										} else {
+											group.Id(resultVars[i])
 										}
-
-										group.Nil()
 									})
 								} else {
-									//group.Panic(jen.Lit("cannot skip"))
-									group.ReturnFunc(func(group *jen.Group) {
-										for k := 0; k < len(resultVars); k++ {
-											t := results.At(k).Type()
-											g.genLit(group, t)
-										}
-
+									g.genPipeReturnsDefault(pipeInfo, group, func(group *jen.Group) {
 										group.
 											Qual(piperErrorsPackage, "CannotSkip").
 											Call(jen.Lit(stage.name), jen.Err())
 									})
 								}
 							} else {
-								group.ReturnFunc(func(group *jen.Group) {
-									for k := 0; k < len(resultVars); k++ {
-										group.Id(resultVars[k])
+								g.genStageReturns(lastStage, group, func(group *jen.Group, j int, isError bool) {
+									if isError {
+										group.Err()
+									} else {
+										group.Id(resultVars[j])
 									}
-
-									group.Err()
 								})
 							}
 						}).Line()
 
-						group.ReturnFunc(func(group *jen.Group) {
-							for k := 0; k < len(resultVars); k++ {
-								t := results.At(k).Type()
-								g.genLit(group, t)
-							}
-
+						g.genPipeReturnsDefault(pipeInfo, group, func(group *jen.Group) {
 							group.
 								Qual(piperErrorsPackage, "NewError").
 								Call(jen.Lit(stage.name), jen.Err())
-							//group.Err()
 						})
 					}).Line()
-					//group.If(jen.Err().Op("!=").Nil()).Block(jen.ReturnFunc(func(group *jen.Group) {
-					//	for k := 0; k < len(resultVars); k++ {
-					//		t := results.At(k).Type()
-					//		g.genLit(group, t)
-					//	}
-					//
-					//	group.
-					//		Qual(piperErrorsPackage, "NewError").
-					//		Call(jen.Lit(stage.name), jen.Err())
-					//	//group.Err()
-					//})).Line()
 				}
 			}
 		}
 
-		group.ReturnFunc(func(group *jen.Group) {
-			for i := 0; i < len(resultVars); i++ {
-				group.Id(resultVars[i])
-			}
+		if len(resultVars) > 0 || pipeInfo.returnsError {
+			group.ReturnFunc(func(group *jen.Group) {
+				for i := 0; i < len(resultVars); i++ {
+					group.Id(resultVars[i])
+				}
 
-			if pipeInfo.returnsError {
-				group.Nil()
-			}
-		})
+				if pipeInfo.returnsError {
+					group.Nil()
+				}
+			})
+		}
 	}).Line()
+}
+
+func (g *Generator) genPipeReturnsDefault(pipeInfo *pipeInfo, group *jen.Group, withError func(group *jen.Group)) {
+	stages := pipeInfo.stages
+	lastStage := stages[len(stages)-1]
+	results := lastStage.functor.signature.Results()
+
+	g.genStageReturns(lastStage, group, func(group *jen.Group, i int, isError bool) {
+		if isError {
+			withError(group)
+		} else {
+			g.genLit(group, results.At(i).Type())
+		}
+	})
+}
+
+func (g *Generator) genStageReturns(stage *stage, group *jen.Group,
+	returnParam func(group *jen.Group, i int, isError bool),
+) {
+	results := stage.functor.signature.Results()
+	resultsLen := results.Len()
+	if stage.returnsError {
+		resultsLen--
+	}
+
+	group.ReturnFunc(func(group *jen.Group) {
+		for k := 0; k < resultsLen; k++ {
+			returnParam(group, k, false)
+		}
+
+		returnParam(group, resultsLen, true)
+	})
 }
 
 func (g *Generator) genLit(group *jen.Group, t types.Type) {
@@ -564,7 +581,17 @@ func (g *Generator) canSkip(stage, lastStage *stage) bool {
 	resultsLen := stageFunctor.signature.Results().Len()
 	lastResultsLen := lastStageFunctor.signature.Results().Len()
 
-	//
+	// Ignore error params.
+	if stage.returnsError {
+		resultsLen--
+	}
+
+	// Ignore error params.
+	if lastStage.returnsError {
+		lastResultsLen--
+	}
+
+	// NOTE: a stage can be skipped if its return params is a subset of last stage return params.
 	if lastResultsLen > resultsLen {
 		return false
 	}
