@@ -1,10 +1,17 @@
 package s000
 
 // @pipe
-type SimplePipe struct {
+type P0 struct {
 	a func(int) int
 }
 
-func NewSimplePipe(a func(int) int) *SimplePipe {
-	return &SimplePipe{a: a}
+// @pipe
+type P1 struct {
+	a func(int)
+}
+
+// @pipe
+type P2 struct {
+	a func(int)
+	b func()
 }
