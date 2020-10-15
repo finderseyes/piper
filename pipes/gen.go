@@ -90,7 +90,9 @@ func (g *Generator) Execute() error {
 	}
 
 	fileSet := token.NewFileSet()
-	packages, err := parser.ParseDir(fileSet, g.path, nil, parser.ParseComments)
+	packages, err := parser.ParseDir(fileSet, g.path, func(info os.FileInfo) bool {
+		return info.Name() != "piper_gen.go"
+	}, parser.ParseComments)
 	if err != nil {
 		return err
 	}
@@ -406,8 +408,12 @@ func (g *Generator) genLit(group *jen.Group, t types.Type) {
 	switch t := t.(type) {
 	case *types.Named:
 		group.Id(t.Obj().Name()).Parens(jen.LitFunc(g.getZeroLit(t.Underlying())))
-	default:
+	case *types.Pointer:
+		group.Nil()
+	case *types.Basic:
 		group.LitFunc(g.getZeroLit(t))
+	default:
+		panic("should not reach here")
 	}
 }
 
@@ -427,7 +433,7 @@ func (g *Generator) getZeroLit(t types.Type) func() interface{} {
 				return 0
 			}
 		default:
-			return nil
+			panic("should not reach here")
 		}
 	}
 }

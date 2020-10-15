@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path"
 	"runtime"
@@ -21,7 +20,7 @@ func TestGenCommand_Success(t *testing.T) {
 
 		// assert.NoError(t, command.Run())
 		t.Run(fmt.Sprintf("case: %s", inputPath), func(t *testing.T) {
-			_ = os.Remove(path.Join(inputPath, "piper_gen.go"))
+			// _ = os.Remove(path.Join(inputPath, "piper_gen.go"))
 
 			genCommand := newGenCommand()
 			genCommand.SetArgs([]string{inputPath})
