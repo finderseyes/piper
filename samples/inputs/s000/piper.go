@@ -15,3 +15,9 @@ type P2 struct {
 	a func(int)
 	b func()
 }
+
+// @pipe
+type P3 struct {
+	a func(int) *float32
+	b func(*float32) (*float32, error)
+}
